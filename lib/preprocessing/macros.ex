@@ -21,7 +21,7 @@ defmodule Preprocessing.Macros do
   end
 
   # a wrapper around :code.lib_dir/1 and :epp.open/2. It check
-  # if the requested file exist and if it's the case, it 
+  # if the requested file exist and if it's the case, it
   # returns an epp server process.
   @spec open_file(atom(), String.t()) :: {:ok, pid()}
   defp open_file(module, filepath) do
@@ -68,14 +68,14 @@ defmodule Preprocessing.Macros do
 
   # convert all supporter macro. At this time, some
   # of them are ignored (dynamic macro with arity >0)
-  defp convert_macros([], buffer) do 
-    {:ok, 
+  defp convert_macros([], buffer) do
+    {:ok,
       buffer
-      |> Enum.filter(fn({_, v}) -> 
-        if v==:ignored do 
-          false 
-        else 
-          true 
+      |> Enum.filter(fn({_, v}) ->
+        if v==:ignored do
+          false
+        else
+          true
         end
      end)
     }
@@ -117,7 +117,7 @@ defmodule Preprocessing.Macros do
   end
 
   # returns only the macro values.
-  defp macro_values(module, filepath) do 
+  defp macro_values(module, filepath) do
     with {:ok, defs} <- definitions(module, filepath) do
       defs
       |> Enum.map(fn({_,v}) -> v end)
@@ -139,7 +139,7 @@ defmodule Preprocessing.Macros do
       """
       @spec macros() :: Map.t()
       def macros(), do: unquote(def_keys)
-      
+
       @doc """
       Returns key's value or value's key.
       """

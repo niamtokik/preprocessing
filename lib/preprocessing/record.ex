@@ -7,7 +7,7 @@ defmodule Preprocessing.Record do
   records as Elixir Struct.
 
   ## Usage
-  
+
   Firstly, create a new module for the record to import, for example,
   the record `#RSAPublicKey{}` from the `public_key` module.
 
@@ -48,9 +48,31 @@ defmodule Preprocessing.Record do
   {:ok, {:RSAPublicKey, :undefined, :undefined}}
   ```
 
+  # TODO List
+
+  - [ ] add types support
+  - [ ] add custom converter from template options
+  - [ ] better conversion to Elixir (:undefined to nil)
+
   """
 
-  def list_records(module, filepath, opts \\ %{}) do
+  @doc """
+  List records available from an Erlang module or an application.
+
+  ## Examples
+
+      iex> list(:stdlib, "include/zip.hrl")
+      [:zip_file, :zip_comment]
+
+      iex> list(:kernel, "include/inet.hrl")
+      [:hostent]
+
+      iex> list(:kernel, "src/inet_dns.hrl")
+      [:dns_header, :dns_rec, :dns_rr, :dns_rr_opt, :dns_rr_tsig, :dns_query]
+
+  """
+  @spec list(atom(), String.t(), Map.t()) :: {:ok, [atom()]} | {:error, term()}
+  def list(module, filepath, opts \\ %{}) do
     case :code.lib_dir(module) do
       {:error, reason} ->
         {:error, reason}
@@ -65,16 +87,34 @@ defmodule Preprocessing.Record do
     with true <- File.exists?(target),
          {:ok, tokens} <- :epp.parse_file(target, source_name: source_name)
     do
-      for {:attribute, _, :record, {record_name, _}} <- tokens, do: record_name
+      result = for {:attribute, _, :record, {record_id , _}} <- tokens, do: record_id
+      {:ok, result}
     else
       false -> {:error, :path};
       other -> other
     end
   end
 
+  @doc """
+  Extract a record from an Erlang module.
+
+  ## Examples
+
+      iex> Preprocessing.Record.extract(:stdlib, "include/zip.hrl", :zip_file)
+      [name: :undefined, info: :undefined, comment: :undefined, offset: :undefined, comp_size: :undefined]
+
+      iex> extract(:kernel, "include/inet.hrl", :hostent)
+      [h_name: :undefined, h_aliases: [], h_addrtype: :undefined, h_length: :undefined, h_addr_list: []]
+
+      iex> extract(:kernel, "src/inet_dns.hrl", :dns_header)
+      [id: 0, qr: 0, opcode: 0, aa: 0, tc: 0, rd: 0, ra: 0, pr: 0, rcode: 0]
+  """
+  @spec extract(atom(), String.t(), atom()) :: {:ok, Keyword.t()} | {:error, term()}
   def extract(module, filepath, record) do
     target = Path.join([Atom.to_string(module), filepath])
-    Record.extract(record, from_lib: target)
+    try do {:ok, Record.extract(record, from_lib: target)}
+    catch error -> {:error, error}
+    end
   end
 
   @doc false
@@ -82,7 +122,7 @@ defmodule Preprocessing.Record do
     record_id = Keyword.get(opts, :record_id)
     module = Keyword.get(opts, :module)
     filepath = Keyword.get(opts, :filepath)
-    fields = extract(module, filepath, record_id)
+    {:ok, fields} = extract(module, filepath, record_id)
     keys = for {k, _} <- fields, do: k
     values = for {_, v} <- fields, do: v
     tuple = [:record_id] ++ values
@@ -137,9 +177,9 @@ defmodule Preprocessing.Record do
       """
       @spec is_valid?(struct_or_tuple()) :: boolean()
       def is_valid?(record) do
-        cond do 
-          is_tuple(record) and 
-            :erlang.size(record) == unquote(record_size) and 
+        cond do
+          is_tuple(record) and
+            :erlang.size(record) == unquote(record_size) and
             :erlang.element(1, record) == unquote(record_id) -> true
           true -> false
         end
@@ -151,7 +191,7 @@ defmodule Preprocessing.Record do
       @spec convert(struct_or_tuple()) :: {:ok, struct_or_tuple()} | {:error, term()}
       def convert(struct = %__MODULE__{}) do
         map = Map.from_struct(struct)
-        {:ok, Enum.reduce(fields(), [], fn ({k, _}, acc) -> 
+        {:ok, Enum.reduce(fields(), [], fn ({k, _}, acc) ->
             [Map.get(map, k)|acc]
           end)
           |> Enum.reverse()
@@ -167,7 +207,7 @@ defmodule Preprocessing.Record do
 
           {:ok, keys()
             |> Enum.zip(record_list)
-            |> Enum.reduce(%__MODULE__{}, fn ({k, v}, acc) -> 
+            |> Enum.reduce(%__MODULE__{}, fn ({k, v}, acc) ->
               Map.put(acc, k, v)
             end)
           }

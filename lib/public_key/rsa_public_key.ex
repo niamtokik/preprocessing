@@ -3,5 +3,4 @@ defmodule Preprocessing.PublicKey.RSAPublicKey do
     record_id: :RSAPublicKey,
     module: :public_key,
     filepath: "include/public_key.hrl"
-
 end
