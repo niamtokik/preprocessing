@@ -159,10 +159,11 @@ defmodule Preprocessing.Macros do
       def macro_values(), do: unquote(macro_values(module, filepath))
 
       @doc """
-      An helper function to filter the macros.
+      An helper function to filter the macros, a simple wrapper
+      around `Map.filter/1`.
       """
-      @spec filter(function()) :: Map.t()
-      def filter(fun) do
+      @spec macro_filter(function()) :: Map.t()
+      def macro_filter(fun) do
         unquote(def_keys)
         |> Map.filter(fun)
       end
