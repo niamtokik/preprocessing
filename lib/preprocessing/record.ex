@@ -130,6 +130,12 @@ defmodule Preprocessing.Record do
       |> Macro.escape()
     record_size = length(fields)+1
 
+    # extra features
+    #   convert feature creates convert/1 and convert/1
+    #   function to convert struct to tuple and tuple
+    #   to struct.
+    converter = Keyword.get(opts, :converter, true)
+
     quote do
       import Preprocessing.Record
 
@@ -176,6 +182,7 @@ defmodule Preprocessing.Record do
       Checks if a record is a valid tuple.
       """
       @spec is_valid?(struct_or_tuple()) :: boolean()
+      def is_valid?(struct = %__MODULE__{}), do: true
       def is_valid?(record) do
         cond do
           is_tuple(record) and
@@ -185,46 +192,53 @@ defmodule Preprocessing.Record do
         end
       end
 
-      @doc """
-      Converts a struct to a record or a record to a tuple.
-      """
-      @spec convert(struct_or_tuple()) :: {:ok, struct_or_tuple()} | {:error, term()}
-      def convert(struct = %__MODULE__{}) do
-        map = Map.from_struct(struct)
-        {:ok, Enum.reduce(fields(), [], fn ({k, _}, acc) ->
-            [Map.get(map, k)|acc]
-          end)
-          |> Enum.reverse()
-          |> (fn(xs) -> [unquote(record_id)|xs] end).()
-          |> List.to_tuple()
-        }
-      end
-      def convert(record) when is_tuple(record) do
-        if is_valid?(record) do
-          record_list =
-            Tuple.to_list(record)
-            |> Enum.drop(1)
+      # converter feature, enabled by default
+      unquote do
+        if (converter) do
+          quote do
+            @doc """
+            Converts a struct to a record or a record to a tuple.
+            """
+            @spec convert(struct_or_tuple()) :: {:ok, struct_or_tuple()} | {:error, term()}
+            def convert(struct = %__MODULE__{}) do
+              map = Map.from_struct(struct)
+              {:ok, Enum.reduce(fields(), [], fn ({k, _}, acc) ->
+                  [Map.get(map, k)|acc]
+                end)
+                |> Enum.reverse()
+                |> (fn(xs) -> [unquote(record_id)|xs] end).()
+                |> List.to_tuple()
+              }
+            end
+            def convert(record) when is_tuple(record) do
+              if is_valid?(record) do
+                record_list =
+                  Tuple.to_list(record)
+                  |> Enum.drop(1)
 
-          {:ok, keys()
-            |> Enum.zip(record_list)
-            |> Enum.reduce(%__MODULE__{}, fn ({k, v}, acc) ->
-              Map.put(acc, k, v)
-            end)
-          }
-        else
-          {:error, :invalid_tuple}
-        end
-      end
-      def convert(_), do: {:error, :invalid_term}
+                {:ok, keys()
+                  |> Enum.zip(record_list)
+                  |> Enum.reduce(%__MODULE__{}, fn ({k, v}, acc) ->
+                    Map.put(acc, k, v)
+                  end)
+                }
+              else
+                {:error, :invalid_tuple}
+              end
+            end
+            def convert(_), do: {:error, :invalid_term}
 
-      @doc """
-      see convert/1
-      """
-      @spec convert!(struct_or_tuple()) :: struct_or_tuple()
-      def convert!(record) do
-        case convert(record) do
-          {:ok, data} -> data
-          other -> throw other
+            @doc """
+            see convert/1
+            """
+            @spec convert!(struct_or_tuple()) :: struct_or_tuple()
+            def convert!(record) do
+              case convert(record) do
+                {:ok, data} -> data
+                other -> throw other
+              end
+            end
+          end
         end
       end
 
