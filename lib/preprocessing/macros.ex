@@ -9,6 +9,14 @@ defmodule Preprocessing.Macros do
   Returns the list of available macros from an Erlang module
   header. The module MUST BE LOADED before executing this
   function.
+
+  ## Examples
+
+      iex> definitions(:kernel, "include/file.hrl")
+      {:ok, [FILE_HRL_: 1]}
+
+      iex> definitions(:kernel, "include/inet.hrl")
+      {:ok, []}
   """
   @spec definitions(atom(), String.t()) :: {:ok, Keyword.t()}
   def definitions(module, filepath) do
